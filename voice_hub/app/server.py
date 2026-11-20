@@ -37,8 +37,8 @@ from voiceprint import RATE, Settings
 from web import Web
 
 _LOG = logging.getLogger("voice-hub")
-VERSION = "0.10.1"
-ATTRIBUTION = Attribution(name="LocalDot voice-hub", url="https://github.com/ale1800/voice-hub")
+VERSION = "0.11.0"
+ATTRIBUTION = Attribution(name="LocalDot voice-hub", url="https://github.com/AAElectronics/voice-hub")
 
 
 async def transcribe(hub: Hub, pcm: bytes, language: str) -> str:

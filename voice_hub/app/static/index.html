@@ -199,6 +199,37 @@ function guess(c) {
   if (c.person && c.person !== "unknown")
     return `<span class="chip ok">${esc(c.person)} · ${(+c.score).toFixed(2)}</span>`;
   return `<span class="chip" title="${esc(c.reason)}">unknown${c.reason ? " · " + esc(c.reason) : ""}</span>`; }
+// LocalDot boards that recognise speakers themselves: their own guess, next to Voice Hub's.
+function boardGuess(c) {
+  if (!c.p4) return "";
+  const ok = c.p4.person && c.p4.person !== "?";
+  return `<span class="chip ${ok ? "ok" : ""}" title="On the board: ${esc(c.p4.detail || "")}">board: ${esc(ok ? c.p4.person : "unknown")} · ${(+c.p4.score).toFixed(2)}</span>`; }
+// "Who spoke?": labelling a command adds it to that person's samples (Voice Hub and, on LocalDot boards, the board).
+function ownerOf(file) { const p = data.people.find(p => p.sources.includes(file)); return p ? p.name : ""; }
+function whoSelect(c) {
+  if (!c.file) return "";
+  const cur = ownerOf(c.file);
+  const opts = [`<option value="" ${cur ? "" : "selected"}>Who spoke?</option>`]
+    .concat(data.people.map(p => `<option value="${esc(p.name)}" ${p.name === cur ? "selected" : ""}>${esc(p.name)}</option>`))
+    .concat([`<option value="__new">New person…</option>`]);
+  if (cur) opts.push(`<option value="__none">Nobody (remove)</option>`);
+  return `<select title="Who spoke? Labelled commands become voice samples" onchange="labelCommand(${js(c.file)}, this.value)">${opts.join("")}</select>`;
+}
+async function labelCommand(file, value) {
+  const cur = ownerOf(file);
+  let name = value;
+  if (value === "__new") { name = (prompt("Name of the person who spoke:") || "").trim(); if (!name) { render(); return; } }
+  if (name === cur) return;
+  saving = true;
+  try {
+    if (cur) await api(`api/people/${encodeURIComponent(cur)}/remove`, {method: "POST", body: JSON.stringify({file})});
+    if (name && name !== "__none") {
+      const r = await api("api/people", {method: "POST", body: JSON.stringify({name, files: [file]})});
+      if (r.skipped.length) alert("This recording is too short to be a voice sample.");
+    }
+  } catch (e) { alert(e.message); }
+  saving = false; load();
+}
 function race(c) {
   if (c.race_ms == null) return "";
   return c.race_ms >= 0 ? `<span class="chip ok" title="Published before the sentence was handled">+${c.race_ms} ms</span>`
@@ -767,7 +798,7 @@ function renderCommands() {
       onclick="play(this,${js(c.file)})">▶</button>
     <div style="min-width:0"><div class="text">${esc(c.text || (c.text === null ? "(no transcript)" : "…"))}</div>
       <div class="muted">${when(c.time)} · ${esc(c.device_name || "")} · ${(+c.duration_s || 0).toFixed(1)} s</div></div>
-    <div class="row actions">${guess(c)}${race(c)}
+    <div class="row actions">${guess(c)}${boardGuess(c)}${race(c)}${whoSelect(c)}
       ${c.file ? `<button class="icon" title="Delete recording" onclick="deleteRec(${js(c.file)})">🗑</button>` : ""}</div>
   </div>`).join("") + `</div>`;
 }

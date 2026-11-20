@@ -20,7 +20,7 @@ It also offers:
 
 1. In Home Assistant open **Settings → Add-ons → Add-on Store**.
 2. Open the **⋮** menu → **Repositories**, add
-   `https://github.com/ale1800/voice-hub` and close the dialog.
+   `https://github.com/AAElectronics/voice-hub` and close the dialog.
 3. Find **Voice Hub** in the store, click **Install**, then **Start**.
 4. Open **Voice Hub** from the sidebar and use **Add person** to enroll someone.
 

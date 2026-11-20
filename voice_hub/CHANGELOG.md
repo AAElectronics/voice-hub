@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.11.0
+
+- The repository moved to the AAElectronics organization: in Home Assistant, **Settings → Add-ons → Add-on Store → ⋮ → Repositories**, replace `https://github.com/ale1800/voice-hub` with `https://github.com/AAElectronics/voice-hub` (the old address keeps working through GitHub's redirect for now).
+- "Who spoke?" menu on every saved command: picking a name adds that command to the person's voice samples (or moves it from another person); "New person…" starts a new one.
+- LocalDot boards that recognise speakers themselves (development firmware with the ESP32-P4 voiceprint): the board's own guess is shown next to Voice Hub's, its voiceprint is kept with the command, and whenever people change the board gets its people list again (actions `p4_people_begin` / `p4_people_chunk` / `p4_people_finish`). Board voiceprints and Voice Hub voiceprints are never mixed.
+
+## 0.10.2
+
+- Agent: Italian timer requests that Home Assistant's built-in sentences miss are passed on in a form it recognises ("imposto/metti/fammi un timer di 5 minuti", "imposta il timer a 5 minuti", "5 minuti di timer", durations in words such as "un'ora", "mezz'ora", "2 minuti e mezzo"). Only when the agent is Home Assistant's own and a duration follows; other commands are untouched.
+
 ## 0.10.1
 
 - The interface and the enrollment phrases follow Home Assistant's language when the `language` option is empty (Italian or English; other languages use English).

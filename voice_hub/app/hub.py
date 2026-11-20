@@ -52,6 +52,10 @@ class Hub:
         self.session: aiohttp.ClientSession | None = None
         self.wake = None                      # wake.WakeEngine with --wake
         self.agent = None                     # agent.Agent with --agent
+        # LocalDot boards that recognise speakers themselves (p4speaker.py); device_id -> ESPHome node
+        from p4speaker import P4Speaker
+        self.p4 = P4Speaker(self)
+        self.board_nodes: dict[str, str] = {}
         # Last commands for the web page (newest last). Each entry is a dict that
         # capture/server keep updating (transcript, race) after it is added.
         self.recent: deque[dict] = deque(maxlen=200)
@@ -173,6 +177,7 @@ class Hub:
                  "runner_up": r.runner_up, "duration_s": r.duration_s, "reason": r.reason,
                  "file": os.path.basename(base) if base else None, **extra}
         self.recent.append(entry)
+        self.p4.on_command(entry, extra.get("device_id"))
         return entry
 
     def delete_recording(self, name: str) -> bool:

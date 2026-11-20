@@ -188,6 +188,7 @@ class Capture:
                 await self.ha.connect()
                 reader = asyncio.create_task(self.ha.run())
                 await self._discover()
+                await self.hub.p4.subscribe(self)     # board voiceprints (LocalDot P4), see p4speaker.py
                 watcher = asyncio.create_task(self._rediscover_loop())
                 await reader
                 watcher.cancel()

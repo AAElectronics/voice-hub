@@ -151,6 +151,7 @@ class Web:
                 node = ring.node_of(self.capture.device_entities.get(sat.device_id, []), states)
                 if node:
                     self.ring_nodes[sat.device_id] = node
+                    self.hub.board_nodes[sat.device_id] = node
                 devices.append({
                     "device_id": sat.device_id, "name": sat.name, "entity_id": sat.entity_id,
                     "ring": ({"designs": self.ring.get(sat.device_id),
@@ -172,6 +173,7 @@ class Web:
         return web.json_response({
             "language": await self._ha_language(),
             "devices": devices, "people": people, "recent": list(reversed(self.hub.recent)),
+            "board_speaker": self.hub.p4.summary(),
             "enrollment": (e.as_dict() if (e := self.hub.enrollment.active()) else None),
             "wake": self.hub.wake.summary() if self.hub.wake else None,
             "agent": ({"settings": self.hub.agent.settings, "last": self.hub.agent.last,
@@ -224,6 +226,7 @@ class Web:
             self.hub.registry.add(name, emb, f)
             added += 1
         _LOG.info("enrolled %s: +%d recordings (%d too short)", name, added, len(skipped))
+        self.hub.p4.schedule_sync()
         return {"added": added, "skipped": skipped}
 
     # Guided enrollment (enrollment.py): the page polls /api/state for progress.
@@ -320,12 +323,14 @@ class Web:
         if not self.hub.registry.remove(name):
             raise web.HTTPNotFound()
         _LOG.info("removed %s", name)
+        self.hub.p4.schedule_sync()
         return web.json_response({"ok": True})
 
     async def remove_source(self, request: web.Request) -> web.Response:
         body = await request.json()
         if not self.hub.registry.remove_source(request.match_info["name"], body.get("file", "")):
             raise web.HTTPNotFound()
+        self.hub.p4.schedule_sync()
         return web.json_response({"ok": True})
 
     async def delete_recording(self, request: web.Request) -> web.Response:

@@ -25,6 +25,7 @@ import asyncio
 import json
 import logging
 import os
+import re
 import time
 
 from wyoming.asr import Transcript
@@ -37,6 +38,40 @@ WAIT_S = 1.2              # longest wait for the voiceprint before the command g
 FOLLOW_UP_S = 25.0        # a reopened listen counts as the same conversation this long
 IDLE_TIMEOUT_S = 60.0     # longest wait for the satellite to finish the reply
 DEFAULT_AGENT = "conversation.home_assistant"
+
+# Timer phrasings Home Assistant's built-in Italian sentences miss, rewritten to one it knows
+# ("imposta un timer di ..."). Speech-to-text often hears "imposto" for "imposta"; "metti un timer"
+# even matched media playback. Only when a duration follows, so other commands are untouched.
+_DURATION = re.compile(r"\b(second[oi]|minut[oi]|or[ae]|mezz)", re.I)
+_TIMER_IT = [
+    re.compile(r"^(?:mi\s+)?(?:imposto|impostami|imposta|metti|mettimi|fammi|fai|setta|settami|crea|creami|"
+               r"avvia|avviami|fai\s+partire|programma)\s+(?:un|il|uno)\s+timer\s+(?:di|da|per|a|su)\s+(.+)$", re.I),
+    re.compile(r"^(?:un\s+)?timer\s+(?:di|per|da|a)\s+(.+)$", re.I),
+    re.compile(r"^(.+?)\s+di\s+timer$", re.I),
+]
+# Durations in words that Home Assistant's sentences do not parse ("un'ora" fails even in the right phrase).
+_WORDS_IT = [
+    (re.compile(r"\bun\s+quarto\s+d['’\s]?ora\b", re.I), "15 minuti"),
+    (re.compile(r"\bmezz['’\s]?ora\b|\bmezza\s+ora\b", re.I), "30 minuti"),
+    (re.compile(r"\b(?:un|una)\s*['’]?\s*ora\b", re.I), "1 ora"),
+    (re.compile(r"\bun\s+minuto\b", re.I), "1 minuto"),
+    (re.compile(r"\bun\s+secondo\b", re.I), "1 secondo"),
+    (re.compile(r"\b(or[ae])\s+e\s+mezz[ao]\b", re.I), r"\1 e 30 minuti"),
+    (re.compile(r"\b(minut[oi])\s+e\s+mezz[ao]\b", re.I), r"\1 e 30 secondi"),
+]
+
+
+def canonical_timer(text: str) -> str | None:
+    """The phrase Home Assistant recognises for an Italian timer request, or None if not one."""
+    t = text.strip().rstrip(".!?").strip()
+    for rx in _TIMER_IT:
+        m = rx.match(t)
+        if m and _DURATION.search(m.group(1)):
+            d = m.group(1).strip()
+            for w, n in _WORDS_IT:
+                d = w.sub(n, d)
+            return f"imposta un timer di {d}"
+    return None
 
 
 class Agent:
@@ -98,6 +133,9 @@ class Agent:
         if conv is None and device_id and (fu := self.follow_up.pop(device_id, None)) and fu[0] > time.monotonic():
             conv = fu[1]
         text = tr.text or ""
+        if agent_id == DEFAULT_AGENT and (fixed := canonical_timer(text)):
+            _LOG.info("agent: timer request %r passed on as %r", text, fixed)
+            text = fixed
         if self.settings["tell_name"] and agent_id != DEFAULT_AGENT and person and person != "unknown":
             text = f"({person} is speaking) {text}"
         key = (device_id, tr.text)
